@@ -1,32 +1,65 @@
+import { GetStaticProps } from 'next';
 import Head from 'next/head';
+import { getPrismicClient } from '../../services/prismic';
 import styles from './styles.module.scss';
+import * as prismicH from '@prismicio/helpers';
 
-export default function Posts() {
+type Post = {
+    slug: string;
+    title: string;
+    excerpt: string;
+    updatedAt: string;
+}
+interface PostProps {
+    posts: Post[];
+}
+
+export default function Posts({ posts }: PostProps) {
     return (
         <>
-        <Head>
-            <title>Posts | Ignews</title>
-        </Head>
+            <Head>
+                <title>Posts | Ignews</title>
+            </Head>
 
-        <main className={styles.container}>
-            <div className={styles.posts}>
-                <a href='#'>
-                    <time>29 de Agosto de 2022</time>
-                    <strong>Creating a & wosdjh osdhf ofsdfhsio</strong>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugiat dignissimos repellendus nesciunt impedit mollitia laboriosam ratione! Sequi perspiciatis, vitae obcaecati facilis aspernatur pariatur fugiat et nisi vero quibusdam sed earum?</p>
-                </a>
-                <a href='#'>
-                    <time>29 de Agosto de 2022</time>
-                    <strong>Creating a & wosdjh osdhf ofsdfhsio</strong>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugiat dignissimos repellendus nesciunt impedit mollitia laboriosam ratione! Sequi perspiciatis, vitae obcaecati facilis aspernatur pariatur fugiat et nisi vero quibusdam sed earum?</p>
-                </a>
-                < a href='#'>
-                    <time>29 de Agosto de 2022</time>
-                    <strong>Creating a & wosdjh osdhf ofsdfhsio</strong>
-                    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Fugiat dignissimos repellendus nesciunt impedit mollitia laboriosam ratione! Sequi perspiciatis, vitae obcaecati facilis aspernatur pariatur fugiat et nisi vero quibusdam sed earum?</p>
-                </a>
-            </div>
-        </main>
+            <main className={styles.container}>
+                <div className={styles.posts}>
+                    {posts.map(post => (
+                        <a href='#' key={post.slug}>
+                            <time>{post.updatedAt}</time>
+                            <strong>{post.title}</strong>
+                            <p>{post.excerpt}</p>
+                        </a>
+                    ))}
+                </div>
+            </main>
         </>
     );
+}
+
+export const getStaticProps: GetStaticProps = async () => {
+    const prismicio = getPrismicClient();
+
+    const response = await prismicio.getAllByType('post', {
+        fetchLinks: ['post.title', 'post.content'],
+        pageSize: 100
+    });
+
+    const posts = response.map(post => {
+        return {
+            slug: post.uid,
+            title: prismicH.asText(post.data.title),
+            excerpt: post.data.content.find(content => content.type === 'paragraph')?.text ?? '',
+            updatedAt: new Date(post.last_publication_date).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            })
+        }
+    })
+
+    return {
+        props: {
+            posts
+        }
+    }
 }
