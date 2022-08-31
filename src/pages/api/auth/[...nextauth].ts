@@ -20,10 +20,46 @@ export default NextAuth({
     // ...add more providers here
   ],
   callbacks: {
-    async signIn( {user: User, account: Account, profile: Profile} ) {
-      const { email } = User
-      console.log(User.email);
-      
+    async session({ session }) {
+      try {
+        session.user.email
+
+        const userActiveSubscription = await fauna.query(
+          q.Get(
+            q.Intersection([
+              q.Match(
+                q.Index('subscription_by_user_ref'),
+                q.Select(
+                  "ref",
+                  q.Get(
+                    q.Match(
+                      q.Index('users_by_email'),
+                      q.Casefold(session.user.email)
+                    )
+                  )
+                )
+              ),
+              q.Match(
+                q.Index('subscription_by_status'),
+                "active"
+              )
+            ])
+          )
+        )
+
+        return {
+          ...session,
+          activeSubscription: userActiveSubscription
+        };
+      } catch {
+        return {
+          ...session,
+          activeSubscription: null
+        };
+      }
+    },
+    async signIn({ user: User, account: Account, profile: Profile }) {
+      const { email } = User;
 
       try {
         await fauna.query(
@@ -38,7 +74,7 @@ export default NextAuth({
             ),
             q.Create(
               q.Collection('users'),
-             { data: { email } }
+              { data: { email } }
             ),
             q.Get(
               q.Match(
@@ -49,7 +85,7 @@ export default NextAuth({
           )
         )
         return true
-      } catch(err) {
+      } catch (err) {
         console.log(err);
         return false;
       }
